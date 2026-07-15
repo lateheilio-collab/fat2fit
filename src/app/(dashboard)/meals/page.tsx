@@ -64,6 +64,49 @@ export default function MealsPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisDraft, setAnalysisDraft] = useState<any | null>(null);
+  const [editableItems, setEditableItems] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (analysisDraft && analysisDraft.items) {
+      setEditableItems(
+        analysisDraft.items.map((item: any) => {
+          const activeMatch = item.suggestedFineliMatches?.[0] || {};
+          const factor = item.estimatedGrams / 100;
+          return {
+            detectedName: item.detectedName,
+            estimatedGrams: item.estimatedGrams,
+            energyKcal: Math.round((activeMatch.energyKcal || 150) * factor),
+            proteinG: Number(((activeMatch.proteinG || 10) * factor).toFixed(1)),
+            carbsG: Number(((activeMatch.carbsG || 15) * factor).toFixed(1)),
+            fatG: Number(((activeMatch.fatG || 5) * factor).toFixed(1)),
+            fiberG: Number(((activeMatch.fiberG || 1) * factor).toFixed(1)),
+            foodId: activeMatch.fineliId || null,
+          };
+        })
+      );
+    } else {
+      setEditableItems([]);
+    }
+  }, [analysisDraft]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const action = params.get("action");
+      if (action === "camera") {
+        setTimeout(() => {
+          document.getElementById("camera-input")?.click();
+          const el = document.getElementById("photo-analyzer-section");
+          if (el) el.scrollIntoView({ behavior: "smooth" });
+        }, 300);
+      } else if (action === "manual") {
+        setTimeout(() => {
+          const el = document.getElementById("manual-search-section");
+          if (el) el.scrollIntoView({ behavior: "smooth" });
+        }, 300);
+      }
+    }
+  }, []);
 
   // Custom food creation state
   const [showCreateFoodModal, setShowCreateFoodModal] = useState(false);
@@ -299,27 +342,21 @@ export default function MealsPage() {
 
   // Confirm and log analyzed meal
   const handleLogAnalyzedMeal = async () => {
-    if (!analysisDraft) return;
+    if (editableItems.length === 0) return;
     setLoading(true);
 
     try {
-      // Map analysis draft items to database models
-      const items = analysisDraft.items.map((item: any) => {
-        // Find selected Fineli match or use defaults
-        const activeMatch = item.suggestedFineliMatches?.[0] || {};
-        const factor = item.estimatedGrams / 100;
-
-        return {
-          foodId: activeMatch.fineliId || null,
-          foodName: item.detectedName,
-          amountG: item.estimatedGrams,
-          energyKcal: Math.round((activeMatch.energyKcal || 150) * factor),
-          proteinG: Number(((activeMatch.proteinG || 10) * factor).toFixed(1)),
-          carbohydratesG: Number(((activeMatch.carbsG || 15) * factor).toFixed(1)),
-          fatG: Number(((activeMatch.fatG || 5) * factor).toFixed(1)),
-          fiberG: Number(((activeMatch.fiberG || 1) * factor).toFixed(1)),
-        };
-      });
+      // Map edited items to database models
+      const items = editableItems.map((item: any) => ({
+        foodId: item.foodId || null,
+        foodName: item.detectedName,
+        amountG: parseFloat(item.estimatedGrams) || 0,
+        energyKcal: Math.round(parseFloat(item.energyKcal) || 0),
+        proteinG: Number(parseFloat(item.proteinG) || 0),
+        carbohydratesG: Number(parseFloat(item.carbsG) || 0),
+        fatG: Number(parseFloat(item.fatG) || 0),
+        fiberG: Number(parseFloat(item.fiberG) || 0),
+      }));
 
       const offset = new Date().toLocaleString("en-US", { timeZone: "Europe/Helsinki", timeStyle: "long" }).includes("GMT+3") || new Date().toLocaleString("en-US", { timeZone: "Europe/Helsinki", timeStyle: "long" }).includes("EEST") ? "+03:00" : "+02:00";
       const todayStr = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Helsinki" });
@@ -328,7 +365,7 @@ export default function MealsPage() {
         : new Date(`${selectedDate}T12:00:00${offset}`).toISOString();
 
       const payload = {
-        mealType: analysisDraft.mealType || "lunch",
+        mealType: analysisDraft?.mealType || "lunch",
         loggedAt,
         accuracyClass: "PHOTO_CONFIRMED",
         items,
@@ -585,7 +622,7 @@ export default function MealsPage() {
             </div>
 
             {/* Food Search (Fineli) */}
-            <div className="flex flex-col gap-2 border-t border-border/20 pt-4">
+            <div id="manual-search-section" className="flex flex-col gap-2 border-t border-border/20 pt-4 text-left">
               <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Hae Finelistä</label>
               <div className="relative flex items-center">
                 <Search className="absolute left-3.5 w-4 h-4 text-muted-foreground" />
@@ -668,20 +705,43 @@ export default function MealsPage() {
             )}
 
             {/* Camera Photo Analyzer */}
-            <div className="flex flex-col gap-3 border-t border-border/20 pt-4">
+            <div id="photo-analyzer-section" className="flex flex-col gap-3 border-t border-border/20 pt-4 text-left">
               <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Tekoäly Kuva-analyysi</label>
               
               {!imagePreview ? (
-                <div className="relative group border border-dashed border-border/40 hover:border-primary rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors text-center bg-secondary/5 hover:bg-secondary/15">
-                  <Camera className="w-8 h-8 text-muted-foreground group-hover:text-primary transition-colors" />
-                  <span className="text-xs font-bold">Ota kuva tai valitse tiedosto</span>
-                  <span className="text-[10px] text-muted-foreground">JPEG tai PNG tiedostomuoto</span>
+                <div className="flex flex-col gap-2">
                   <input
                     type="file"
                     accept="image/*"
+                    capture="environment"
+                    id="camera-input"
+                    className="hidden"
                     onChange={handleImageFileChange}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
                   />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    id="gallery-input"
+                    className="hidden"
+                    onChange={handleImageFileChange}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById("camera-input")?.click()}
+                    className="py-3 px-4 rounded-xl bg-gradient-to-tr from-primary to-violet-500 text-white font-semibold text-xs hover:opacity-90 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-primary/20"
+                  >
+                    <Camera className="w-4.5 h-4.5" />
+                    Ota kuva kameralla
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById("gallery-input")?.click()}
+                    className="py-3 px-4 rounded-xl bg-secondary/60 text-foreground font-semibold text-xs hover:bg-secondary/80 active:scale-98 transition-all flex items-center justify-center gap-2 border border-border/30 cursor-pointer"
+                  >
+                    Valitse kuvakirjastosta
+                  </button>
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
@@ -713,7 +773,7 @@ export default function MealsPage() {
                       ) : (
                         <>
                           <Sparkles className="w-4 h-4" />
-                          Analysoi ruokakuva
+                          Käytä kuvaa (Analysoi)
                         </>
                       )}
                     </button>
@@ -723,31 +783,114 @@ export default function MealsPage() {
             </div>
 
             {/* Analysis Draft Confirmation View */}
-            {analysisDraft && (
-              <div className="p-4 rounded-2xl bg-secondary/30 border border-emerald-500/10 flex flex-col gap-4 animate-fade-in">
+            {analysisDraft && editableItems.length > 0 && (
+              <div className="p-4 rounded-2xl bg-secondary/30 border border-emerald-500/10 flex flex-col gap-4 animate-fade-in text-left">
                 <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-xs uppercase tracking-wider">
                   <Sparkles className="w-4 h-4" />
                   Kuva-analyysin tulos
                 </div>
 
-                <div className="flex flex-col gap-2.5">
-                  {analysisDraft.items.map((item: any, idx: number) => {
-                    const selectedMatch = item.suggestedFineliMatches?.[0] || {};
-                    return (
-                      <div key={idx} className="flex flex-col gap-1 border-b border-border/10 pb-2 last:border-0 last:pb-0">
-                        <div className="flex justify-between items-baseline">
-                          <span className="text-xs font-bold text-foreground">{item.detectedName}</span>
-                          <span className="text-xs font-semibold text-muted-foreground">{item.estimatedGrams}g</span>
+                <span className="text-[10px] text-amber-400 font-semibold mb-1 block">
+                  ⚠️ AI-arvio. Tarkista ja korjaa tarvittaessa.
+                </span>
+
+                <div className="flex flex-col gap-3.5">
+                  {editableItems.map((item: any, idx: number) => (
+                    <div key={idx} className="bg-zinc-900/80 p-3 rounded-xl border border-border/20 flex flex-col gap-2 relative">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditableItems(prev => prev.filter((_, i) => i !== idx));
+                        }}
+                        className="absolute top-2 right-2 text-red-400 hover:text-red-300 p-1"
+                        title="Poista"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+
+                      <div className="flex flex-col gap-1 pr-6">
+                        <label className="text-[9px] uppercase font-bold text-muted-foreground">Ainesosa</label>
+                        <input
+                          type="text"
+                          value={item.detectedName}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEditableItems(prev => prev.map((itm, i) => i === idx ? { ...itm, detectedName: val } : itm));
+                          }}
+                          className="bg-zinc-950 border border-border/30 rounded-lg px-2 py-1 text-xs text-foreground focus:outline-none focus:border-primary"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[9px] uppercase font-bold text-muted-foreground">Määrä (g)</label>
+                          <input
+                            type="number"
+                            value={item.estimatedGrams}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setEditableItems(prev => prev.map((itm, i) => i === idx ? { ...itm, estimatedGrams: val } : itm));
+                            }}
+                            className="bg-zinc-950 border border-border/30 rounded-lg px-2 py-1 text-xs text-foreground focus:outline-none focus:border-primary"
+                          />
                         </div>
-                        <div className="flex items-center justify-between text-[10px] text-muted-foreground font-medium">
-                          <span>Fineli: {selectedMatch.name || "Ei vastaavuutta"}</span>
-                          {selectedMatch.energyKcal && (
-                            <span>{Math.round(selectedMatch.energyKcal * (item.estimatedGrams / 100))} kcal</span>
-                          )}
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[9px] uppercase font-bold text-muted-foreground">Kalorit (kcal)</label>
+                          <input
+                            type="number"
+                            value={item.energyKcal}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setEditableItems(prev => prev.map((itm, i) => i === idx ? { ...itm, energyKcal: val } : itm));
+                            }}
+                            className="bg-zinc-950 border border-border/30 rounded-lg px-2 py-1 text-xs text-foreground focus:outline-none focus:border-primary"
+                          />
                         </div>
                       </div>
-                    );
-                  })}
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[9px] uppercase font-bold text-muted-foreground">Prot (g)</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={item.proteinG}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setEditableItems(prev => prev.map((itm, i) => i === idx ? { ...itm, proteinG: val } : itm));
+                            }}
+                            className="bg-zinc-950 border border-border/30 rounded-lg px-2 py-1 text-[11px] text-foreground focus:outline-none focus:border-primary"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[9px] uppercase font-bold text-muted-foreground">Hiili (g)</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={item.carbsG}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setEditableItems(prev => prev.map((itm, i) => i === idx ? { ...itm, carbsG: val } : itm));
+                            }}
+                            className="bg-zinc-950 border border-border/30 rounded-lg px-2 py-1 text-[11px] text-foreground focus:outline-none focus:border-primary"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[9px] uppercase font-bold text-muted-foreground">Rasva (g)</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={item.fatG}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setEditableItems(prev => prev.map((itm, i) => i === idx ? { ...itm, fatG: val } : itm));
+                            }}
+                            className="bg-zinc-950 border border-border/30 rounded-lg px-2 py-1 text-[11px] text-foreground focus:outline-none focus:border-primary"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 <button

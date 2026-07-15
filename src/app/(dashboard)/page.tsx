@@ -220,7 +220,7 @@ export default async function TodayPage() {
   caloriesBurnedToday = Math.round(caloriesBurnedToday);
 
   // 7. Fetch today's planned workout
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Helsinki" });
   const { data: todayWorkouts } = await supabase
     .from("planned_workouts")
     .select("*")
@@ -242,7 +242,20 @@ export default async function TodayPage() {
     weekday: "long",
     day: "numeric",
     month: "long",
+    timeZone: "Europe/Helsinki",
   });
+
+  // Dynamic Coach Advice
+  let coachAdvice = "Kaikki näyttää hyvältä! Keskity pitämään kiinni suunnitellusta ateriarytmistä ja tee hyvä treeni.";
+  if (checkInToday && checkInToday.sleep_hours && Number(checkInToday.sleep_hours) < 7) {
+    coachAdvice = `Tänään tärkeintä: Pidä proteiinitavoite ja tee kevyt palauttava treeni. Uni jäi alle tavoitteen (${checkInToday.sleep_hours} h), joten kovaa harjoitusta ei suositella kuormituksen hallitsemiseksi.`;
+  } else if (todayWorkout && todayWorkout.status !== "completed") {
+    coachAdvice = `Tänään tärkeintä: Tee suunniteltu treeni "${todayWorkout.title}". Varmista, että saat riittävästi proteiinia (${proteinTarget}g) lihasten palautumiseen ja kehitykseen.`;
+  } else if (mealsToday && caloriesConsumed > caloriesTarget) {
+    coachAdvice = "Päivän kalorisuositus on ylittynyt. Ota loppupäivä kevyemmin ja keskity pääasiassa proteiinipitoisiin ja vähäkalorisiin välipaloihin.";
+  } else if (proteinConsumed > 0 && proteinConsumed < proteinTarget * 0.5) {
+    coachAdvice = `Huomioi proteiinin saanti loppupäivän aterioilla. Olet saavuttanut vasta ${proteinConsumed}g tavoitteestasi (${proteinTarget}g).`;
+  }
 
   return (
     <div className="flex flex-col gap-8 pb-8 animate-fade-in">
@@ -260,6 +273,19 @@ export default async function TodayPage() {
         <div className="flex items-center gap-2 text-muted-foreground text-sm glass-panel py-2 px-4 rounded-xl border border-border/40 w-fit">
           <Calendar className="w-4 h-4 text-primary" />
           <span className="capitalize">{todayDate}</span>
+        </div>
+      </div>
+
+      {/* AI Coach Advice Card */}
+      <div className="rounded-3xl bg-gradient-to-tr from-primary/10 via-violet-500/10 to-transparent border border-primary/20 p-5 md:p-6 text-left flex items-start gap-4 animate-fade-in shadow-lg shadow-primary/5">
+        <div className="w-11 h-11 md:w-12 md:h-12 rounded-2xl bg-primary/20 flex items-center justify-center shrink-0 text-primary">
+          <Sparkles className="w-5.5 h-5.5 md:w-6 md:h-6 animate-pulse" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] uppercase font-bold text-primary tracking-wider">AI Valmentajan päiväyhteenveto</span>
+          <p className="text-sm font-semibold text-zinc-200 leading-relaxed">
+            {coachAdvice}
+          </p>
         </div>
       </div>
 

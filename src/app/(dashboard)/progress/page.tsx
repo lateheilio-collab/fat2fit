@@ -111,6 +111,7 @@ export default function ProgressPage() {
 
   // Range filter for charts
   const [chartRange, setChartRange] = useState<number>(30); // 7, 30, 90, 180, 365
+  const [chartMetric, setChartMetric] = useState<"weight" | "calories" | "activity">("weight");
   
   // Custom metrics form states
   const [metricName, setMetricName] = useState("");
@@ -663,112 +664,190 @@ ${report.recommendations?.map((r: string) => `- ${r}`).join("\n") || "Ei asetett
 
           {/* Chart Card */}
           <div className="rounded-2xl glass-panel border border-border/40 p-6 flex flex-col gap-6 bg-secondary/10">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <LineIcon className="w-4 h-4 text-primary" />
-                <h3 className="font-heading font-bold text-sm uppercase tracking-wider text-muted-foreground">Painokehitys vs. Tavoite</h3>
+            {/* Chart Header */}
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-border/10 pb-4">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <LineIcon className="w-4 h-4 text-primary" />
+                  <h3 className="font-heading font-bold text-sm uppercase tracking-wider text-muted-foreground">Kehityksen seuranta</h3>
+                </div>
+                <span className="text-[10px] text-muted-foreground">Tarkastele eri hyvinvointi- ja edistymismittareita.</span>
               </div>
 
-              {/* Range Selector */}
-              <div className="flex bg-secondary/30 rounded-lg p-0.5 border border-border/40">
-                {[
-                  { label: "7 pv", value: 7 },
-                  { label: "30 pv", value: 30 },
-                  { label: "90 pv", value: 90 },
-                  { label: "180 pv", value: 180 },
-                  { label: "Kaikki", value: 365 }
-                ].map(r => (
-                  <button
-                    key={r.value}
-                    onClick={() => setChartRange(r.value)}
-                    className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
-                      chartRange === r.value 
-                        ? "bg-primary text-primary-foreground shadow"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {r.label}
-                  </button>
-                ))}
+              <div className="flex flex-wrap gap-2 items-center">
+                {/* Metric Selector */}
+                <div className="flex bg-secondary/30 rounded-lg p-0.5 border border-border/40">
+                  {[
+                    { id: "weight", label: "Paino" },
+                    { id: "calories", label: "Kalorit" },
+                    { id: "activity", label: "Treenit" }
+                  ].map(m => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setChartMetric(m.id as any)}
+                      className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                        chartMetric === m.id 
+                          ? "bg-primary text-primary-foreground shadow"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Range Selector */}
+                <div className="flex bg-secondary/30 rounded-lg p-0.5 border border-border/40">
+                  {[
+                    { label: "7 pv", value: 7 },
+                    { label: "30 pv", value: 30 },
+                    { label: "90 pv", value: 90 },
+                    { label: "180 pv", value: 180 },
+                    { label: "Kaikki", value: 365 }
+                  ].map(r => (
+                    <button
+                      key={r.value}
+                      type="button"
+                      onClick={() => setChartRange(r.value)}
+                      className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                        chartRange === r.value 
+                          ? "bg-primary text-primary-foreground shadow"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Recharts Chart */}
-            {actualWeighInCount === 0 ? (
-              <div className="w-full h-80 flex flex-col items-center justify-center border border-dashed border-border/40 rounded-xl bg-secondary/5 text-center p-6">
-                <Scale className="w-12 h-12 text-muted-foreground mb-3 animate-pulse" />
-                <h4 className="font-bold text-sm text-foreground mb-1">Ei painotietoja saatavilla</h4>
-                <p className="text-xs text-muted-foreground max-w-sm">
-                  Lisää vähintään yksi punnitus aloittaaksesi painonseurannan. Voit kirjata painon sovelluksen aamutarkistuksessa tai chatissa.
-                </p>
+            {chartMetric === "weight" ? (
+              actualWeighInCount === 0 ? (
+                <div className="w-full h-80 flex flex-col items-center justify-center border border-dashed border-border/40 rounded-xl bg-secondary/5 text-center p-6">
+                  <Scale className="w-12 h-12 text-muted-foreground mb-3 animate-pulse" />
+                  <h4 className="font-bold text-sm text-foreground mb-1">Ei painotietoja saatavilla</h4>
+                  <p className="text-xs text-muted-foreground max-w-sm">
+                    Lisää vähintään yksi punnitus aloittaaksesi painonseurannan. Voit kirjata painon sovelluksen aamutarkistuksessa tai chatissa.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {actualWeighInCount > 0 && actualWeighInCount < 3 && (
+                    <div className="flex gap-2 items-center p-3 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs">
+                      <Info className="w-4 h-4 shrink-0" />
+                      <span>Painotrendi tarkentuu, kun punnituksia on vähintään kolme (nyt: {actualWeighInCount}/3).</span>
+                    </div>
+                  )}
+                  <div className="w-full h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                        <XAxis dataKey="dateStr" stroke="#71717a" fontSize={11} />
+                        <YAxis domain={["dataMin - 1", "dataMax + 1"]} stroke="#71717a" fontSize={11} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Line
+                          type="monotone"
+                          dataKey="weight"
+                          stroke="#f59e0b"
+                          strokeWidth={3}
+                          dot={{ r: 4, strokeWidth: 1.5, fill: "#f59e0b", stroke: "#18181b" }}
+                          activeDot={{ r: 6, strokeWidth: 2, fill: "#ffffff", stroke: "#f59e0b" }}
+                          connectNulls={true}
+                          name="Toteutunut paino"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="linearGoal"
+                          stroke="#10b981"
+                          strokeWidth={2}
+                          dot={false}
+                          name="Lineaarinen tavoitekäyrä"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="ema7"
+                          stroke="#8b5cf6"
+                          strokeWidth={2}
+                          dot={false}
+                          name="7 pv trendi"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="ema28"
+                          stroke="#6366f1"
+                          strokeWidth={1.5}
+                          strokeDasharray="3 3"
+                          dot={false}
+                          name="28 pv trendi"
+                        />
+                        <ReferenceLine y={data?.goals?.targetWeight || 80} stroke="#34d399" strokeWidth={1} strokeDasharray="5 5" label={{ value: 'Tavoitepaino', fill: '#34d399', fontSize: 10, position: 'top' }} />
+                        
+                        {eventTags.map((ev, i) => (
+                          <ReferenceLine
+                            key={i}
+                            x={new Date(ev.date).toLocaleDateString("fi-FI", { day: "numeric", month: "short" })}
+                            stroke="#ef4444"
+                            strokeWidth={0.75}
+                            strokeDasharray="4 4"
+                            label={{ value: ev.label, fill: "#ef4444", fontSize: 9, position: "insideTopLeft" }}
+                          />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </>
+              )
+            ) : chartMetric === "calories" ? (
+              <div className="w-full h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                    <XAxis dataKey="dateStr" stroke="#71717a" fontSize={11} />
+                    <YAxis stroke="#71717a" fontSize={11} label={{ value: 'kcal', angle: -90, position: 'insideLeft', fill: '#71717a' }} />
+                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} content={({ active, payload }: any) => {
+                      if (active && payload && payload.length) {
+                        const pt = payload[0].payload;
+                        return (
+                          <div className="bg-[#18181b] border border-border/40 p-3 rounded-xl shadow-lg text-xs text-left">
+                            <p className="font-bold text-muted-foreground mb-1">{pt.date}</p>
+                            <p className="text-primary font-bold">Ravinto: {pt.calories || 0} kcal</p>
+                            <p className="text-violet-400 font-semibold">Proteiini: {pt.protein || 0} g</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }} />
+                    <Bar dataKey="calories" fill="#a855f7" radius={[4, 4, 0, 0]} name="Kalorit (kcal)" />
+                    <ReferenceLine y={2100} stroke="#10b981" strokeWidth={1.5} strokeDasharray="5 5" label={{ value: 'Suositus', fill: '#10b981', fontSize: 10, position: 'top' }} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             ) : (
-              <>
-                {actualWeighInCount > 0 && actualWeighInCount < 3 && (
-                  <div className="flex gap-2 items-center p-3 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs">
-                    <Info className="w-4 h-4 shrink-0" />
-                    <span>Painotrendi tarkentuu, kun punnituksia on vähintään kolme (nyt: {actualWeighInCount}/3).</span>
-                  </div>
-                )}
-                <div className="w-full h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                      <XAxis dataKey="dateStr" stroke="#71717a" fontSize={11} />
-                      <YAxis domain={["dataMin - 1", "dataMax + 1"]} stroke="#71717a" fontSize={11} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Line
-                        type="monotone"
-                        dataKey="weight"
-                        stroke="#f59e0b"
-                        strokeWidth={3}
-                        dot={{ r: 4, strokeWidth: 1.5, fill: "#f59e0b", stroke: "#18181b" }}
-                        activeDot={{ r: 6, strokeWidth: 2, fill: "#ffffff", stroke: "#f59e0b" }}
-                        connectNulls={true}
-                        name="Toteutunut paino"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="linearGoal"
-                        stroke="#10b981"
-                        strokeWidth={2}
-                        dot={false}
-                        name="Lineaarinen tavoitekäyrä"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="ema7"
-                        stroke="#8b5cf6"
-                        strokeWidth={2}
-                        dot={false}
-                        name="7 pv trendi"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="ema28"
-                        stroke="#6366f1"
-                        strokeWidth={1.5}
-                        strokeDasharray="3 3"
-                        dot={false}
-                        name="28 pv trendi"
-                      />
-                      <ReferenceLine y={data?.goals?.targetWeight || 80} stroke="#34d399" strokeWidth={1} strokeDasharray="5 5" label={{ value: 'Tavoitepaino', fill: '#34d399', fontSize: 10, position: 'top' }} />
-                      
-                      {/* Event markers overlays */}
-                      {eventTags.map((ev, i) => (
-                        <ReferenceLine
-                          key={i}
-                          x={new Date(ev.date).toLocaleDateString("fi-FI", { day: "numeric", month: "short" })}
-                          stroke="#ef4444"
-                          strokeWidth={0.75}
-                          strokeDasharray="4 4"
-                          label={{ value: ev.label, fill: "#ef4444", fontSize: 9, position: "insideTopLeft" }}
-                        />
-                      ))}
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </>
+              <div className="w-full h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                    <XAxis dataKey="dateStr" stroke="#71717a" fontSize={11} />
+                    <YAxis stroke="#71717a" fontSize={11} label={{ value: 'min', angle: -90, position: 'insideLeft', fill: '#71717a' }} />
+                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} content={({ active, payload }: any) => {
+                      if (active && payload && payload.length) {
+                        const pt = payload[0].payload;
+                        return (
+                          <div className="bg-[#18181b] border border-border/40 p-3 rounded-xl shadow-lg text-xs text-left">
+                            <p className="font-bold text-muted-foreground mb-1">{pt.date}</p>
+                            <p className="text-primary font-bold">Harjoituksen kesto: {pt.activityMinutes || 0} min</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }} />
+                    <Bar dataKey="activityMinutes" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Liikunta (min)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             )}
 
             {/* Legend */}

@@ -988,6 +988,27 @@ export default function ChatPage() {
         </div>
       )}
 
+      {/* Quick Suggestions */}
+      {!loading && !imagePreviewBase64 && !csvPreviewContent && (
+        <div className="flex gap-2 overflow-x-auto pb-2 shrink-0 no-scrollbar text-left">
+          {[
+            "Vaihda päivän treeni",
+            "Kerro aamupalan resepti",
+            "Paljonko söin tänään proteiinia?",
+            "Miten painoni kehittyy?"
+          ].map((sugg, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => setInputValue(sugg)}
+              className="px-3.5 py-2 bg-secondary/35 border border-border/30 hover:border-primary/50 text-[11px] font-semibold rounded-full text-muted-foreground hover:text-foreground transition-all shrink-0 cursor-pointer"
+            >
+              {sugg}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Typing bar */}
       <form onSubmit={handleSendMessage} className="flex gap-2 shrink-0">
         <button

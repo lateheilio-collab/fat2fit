@@ -84,6 +84,11 @@ export default function PlanPage() {
   const [restSeconds, setRestSeconds] = useState(0);
   const [expandedEditExerciseId, setExpandedEditExerciseId] = useState<string | null>(null);
   const [infoExerciseId, setInfoExerciseId] = useState<string | null>(null);
+  const [activeExerciseIdx, setActiveExerciseIdx] = useState<number>(0);
+
+  useEffect(() => {
+    setActiveExerciseIdx(0);
+  }, [isTrackingStrength]);
 
   useEffect(() => {
     if (selectedWorkout && selectedWorkout.description) {
@@ -588,7 +593,8 @@ export default function PlanPage() {
               <div className="flex flex-col gap-4 text-left">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Treeniohjelma</h4>
                 
-                <div className="flex flex-col gap-4 max-h-[45vh] overflow-y-auto pr-1">
+                {/* Desktop view: scroll list of all exercises */}
+                <div className="hidden md:flex flex-col gap-4 max-h-[45vh] overflow-y-auto pr-1">
                   {/* WARMUP SECTION */}
                   {strengthWorkoutData.warmup && (
                     <div className="bg-secondary/10 border border-amber-500/20 rounded-2xl p-4 flex flex-col gap-2.5 relative text-left">
@@ -759,6 +765,194 @@ export default function PlanPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* Mobile Stepper view: show one active exercise at a time */}
+                {isTrackingStrength ? (
+                  <div className="md:hidden flex flex-col gap-4 max-h-[52vh] overflow-y-auto pr-1">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground bg-secondary/20 p-2.5 rounded-xl border border-border/10">
+                      <span>LIIKE {activeExerciseIdx + 1} / {strengthWorkoutData.exercises.length}</span>
+                      <span className="text-primary truncate max-w-[60%]">{strengthWorkoutData.exercises[activeExerciseIdx]?.name}</span>
+                    </div>
+
+                    {strengthWorkoutData.exercises[activeExerciseIdx] && (() => {
+                      const ex = strengthWorkoutData.exercises[activeExerciseIdx];
+                      const exIdx = activeExerciseIdx;
+                      return (
+                        <div className="bg-secondary/15 border border-border/20 rounded-2xl p-4 flex flex-col gap-3 relative animate-fade-in text-left">
+                          <div className="flex justify-between items-start">
+                            <div className="flex items-center gap-1.5 pr-6">
+                              <h5 className="font-bold text-sm text-foreground">{ex.name}</h5>
+                              <button
+                                type="button"
+                                onClick={() => setInfoExerciseId(infoExerciseId === ex.name ? null : ex.name)}
+                                className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                              >
+                                <Info className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedEditExerciseId(expandedEditExerciseId === ex.name ? null : ex.name)}
+                              className="text-[10px] text-muted-foreground hover:text-foreground font-semibold px-2 py-0.5 bg-secondary/35 rounded cursor-pointer transition-colors"
+                            >
+                              {expandedEditExerciseId === ex.name ? "Sulje" : "Muokkaa"}
+                            </button>
+                          </div>
+
+                          <p className="text-[10px] text-muted-foreground font-semibold">
+                            Tavoite: {ex.targetSets} sarjaa x {ex.targetReps} toistoa
+                          </p>
+
+                          {infoExerciseId === ex.name && (
+                            <div className="p-3 bg-primary/10 border border-primary/20 text-[11px] leading-relaxed text-primary rounded-xl mt-1 animate-fade-in font-medium">
+                              {ex.instruction || "Suorita liike hallitulla tekniikalla ja hyvällä lihastuntumalla."}
+                            </div>
+                          )}
+
+                          {/* Set pills */}
+                          <div className="flex gap-2 overflow-x-auto pb-1 mt-1 no-scrollbar">
+                            {ex.sets.map((s: any, sIdx: number) => {
+                              const hasWeight = s.suggestedWeight !== null && s.suggestedWeight !== undefined;
+                              const displayWeight = s.actualWeight !== null ? s.actualWeight : s.suggestedWeight;
+                              const displayReps = s.actualReps !== null ? s.actualReps : ex.targetReps;
+                              const isDone = s.completed;
+
+                              return (
+                                <button
+                                  key={sIdx}
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = { ...strengthWorkoutData };
+                                    const setObj = updated.exercises[exIdx].sets[sIdx];
+                                    if (setObj.completed) {
+                                      setObj.completed = false;
+                                      setObj.actualReps = null;
+                                      setObj.actualWeight = null;
+                                    } else {
+                                      setObj.completed = true;
+                                      setObj.actualWeight = s.suggestedWeight !== undefined ? s.suggestedWeight : null;
+                                      const repsStr = String(ex.targetReps);
+                                      const parts = repsStr.split("-");
+                                      setObj.actualReps = parseInt(parts[parts.length - 1]) || 10;
+                                      setRestSeconds(60);
+                                    }
+                                    setStrengthWorkoutData(updated);
+                                  }}
+                                  className={`flex flex-col items-center justify-center w-12 h-14 rounded-2xl shrink-0 transition-all font-bold text-xs border cursor-pointer ${
+                                    isDone
+                                      ? "bg-emerald-500 text-white border-emerald-600 font-extrabold scale-105 shadow-md shadow-emerald-500/20"
+                                      : "bg-zinc-800 text-zinc-100 border-zinc-700/40 hover:bg-zinc-700"
+                                  }`}
+                                >
+                                  {hasWeight ? (
+                                    <>
+                                      <span className="text-[10px] opacity-80">{displayWeight}kg</span>
+                                      <span className="text-[13px] mt-0.5">{displayReps}</span>
+                                    </>
+                                  ) : (
+                                    <span className="text-[13px]">{displayReps}</span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {expandedEditExerciseId === ex.name && (
+                            <div className="flex flex-col gap-2 mt-2 p-3 bg-secondary/35 border border-border/20 rounded-xl animate-fade-in text-[11px] text-left">
+                              <div className="grid grid-cols-3 gap-2 font-bold text-muted-foreground mb-1">
+                                <span>Sarja</span>
+                                <span>Paino (kg)</span>
+                                <span>Toistot</span>
+                              </div>
+                              {ex.sets.map((s: any, sIdx: number) => (
+                                <div key={sIdx} className="grid grid-cols-3 gap-2 items-center">
+                                  <span className="font-semibold text-muted-foreground">Sarja {s.setNum}</span>
+                                  <input
+                                    type="number"
+                                    step="0.5"
+                                    placeholder={String(s.suggestedWeight || 0)}
+                                    value={s.actualWeight !== null ? s.actualWeight : ""}
+                                    onChange={(e) => {
+                                      const val = e.target.value === "" ? null : parseFloat(e.target.value);
+                                      const updated = { ...strengthWorkoutData };
+                                      updated.exercises[exIdx].sets[sIdx].actualWeight = val;
+                                      if (val !== null && !updated.exercises[exIdx].sets[sIdx].completed) {
+                                        updated.exercises[exIdx].sets[sIdx].completed = true;
+                                        const repsStr = String(ex.targetReps);
+                                        const parts = repsStr.split("-");
+                                        updated.exercises[exIdx].sets[sIdx].actualReps = parseInt(parts[parts.length - 1]) || 10;
+                                      }
+                                      setStrengthWorkoutData(updated);
+                                    }}
+                                    className="bg-secondary/40 border border-border/40 rounded-lg p-1 text-center text-foreground outline-none font-bold"
+                                  />
+                                  <input
+                                    type="number"
+                                    placeholder={String(ex.targetReps)}
+                                    value={s.actualReps !== null ? s.actualReps : ""}
+                                    onChange={(e) => {
+                                      const val = e.target.value === "" ? null : parseInt(e.target.value);
+                                      const updated = { ...strengthWorkoutData };
+                                      updated.exercises[exIdx].sets[sIdx].actualReps = val;
+                                      if (val !== null && !updated.exercises[exIdx].sets[sIdx].completed) {
+                                        updated.exercises[exIdx].sets[sIdx].completed = true;
+                                      }
+                                      setStrengthWorkoutData(updated);
+                                    }}
+                                    className="bg-secondary/40 border border-border/40 rounded-lg p-1 text-center text-foreground outline-none font-bold"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Stepper controls */}
+                    <div className="flex gap-3 justify-between mt-1">
+                      <button
+                        type="button"
+                        disabled={activeExerciseIdx === 0}
+                        onClick={() => setActiveExerciseIdx(prev => prev - 1)}
+                        className="flex-1 py-3 bg-secondary hover:bg-secondary/80 text-muted-foreground font-semibold rounded-xl text-xs disabled:opacity-30"
+                      >
+                        &larr; Edellinen liike
+                      </button>
+                      <button
+                        type="button"
+                        disabled={activeExerciseIdx === strengthWorkoutData.exercises.length - 1}
+                        onClick={() => setActiveExerciseIdx(prev => prev + 1)}
+                        className="flex-1 py-3 bg-secondary hover:bg-secondary/80 text-foreground font-semibold rounded-xl text-xs disabled:opacity-30"
+                      >
+                        Seuraava liike &rarr;
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  // If not tracking strength yet but on mobile, show standard warmup + brief overview
+                  <div className="md:hidden flex flex-col gap-4 max-h-[45vh] overflow-y-auto pr-1">
+                    {/* WARMUP SECTION */}
+                    {strengthWorkoutData.warmup && (
+                      <div className="bg-secondary/10 border border-amber-500/20 rounded-2xl p-4 flex flex-col gap-2.5 relative text-left">
+                        <div className="flex items-center gap-2">
+                          <Timer className="w-4.5 h-4.5 text-amber-500 animate-pulse" />
+                          <h5 className="font-heading font-black text-sm text-foreground">
+                            {strengthWorkoutData.warmup.name || "Alkulämmittely"}
+                          </h5>
+                          <span className="text-[10px] text-muted-foreground font-semibold">({strengthWorkoutData.warmup.durationMinutes || 10} min)</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground italic leading-relaxed">
+                          {strengthWorkoutData.warmup.purpose || "Valmistelee kehon ja kohdelihakset tulevaan treeniin."}
+                        </p>
+                      </div>
+                    )}
+                    <div className="p-4 bg-secondary/15 rounded-xl border border-border/20 text-center">
+                      <p className="text-xs text-muted-foreground font-bold">Harjoituksessa on {strengthWorkoutData.exercises.length} kuntosaliliikettä.</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">Aloita harjoitus seurataksesi ja kuitataksesi liikkeet vaiheittain.</p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Rest Timer Floating Bar */}
                 {restSeconds > 0 && (

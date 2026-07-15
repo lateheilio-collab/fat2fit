@@ -48,6 +48,7 @@ export default function NutritionPlanPage() {
   const [mealsCount, setMealsCount] = useState<number>(4);
   const [lockedMeals, setLockedMeals] = useState<Set<string>>(new Set());
   const [selectedDetailMeal, setSelectedDetailMeal] = useState<any>(null);
+  const [activeDayIdx, setActiveDayIdx] = useState<number>(0);
 
   // Advanced detail modal states
   const [detailServings, setDetailServings] = useState<number>(2);
@@ -659,7 +660,7 @@ export default function NutritionPlanPage() {
 
       {/* --- TAB CONTENT: VIIKKOSUUNNITELMA --- */}
       {activeTab === "viikko" && (
-        <div className="flex flex-col gap-6 text-left">
+        <div className="flex flex-col gap-6 text-left animate-fade-in">
           {/* Controls Row */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-secondary/10 border border-border/30 p-4 rounded-2xl gap-4">
             <div>
@@ -671,6 +672,7 @@ export default function NutritionPlanPage() {
               {[3, 4, 5].map(cnt => (
                 <button
                   key={cnt}
+                  type="button"
                   onClick={() => handleUpdateMealsCount(cnt)}
                   className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
                     mealsCount === cnt 
@@ -684,8 +686,26 @@ export default function NutritionPlanPage() {
             </div>
           </div>
 
-          {/* Weekly Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+          {/* Mobile Swiper selector */}
+          <div className="md:hidden flex justify-between bg-zinc-900 border border-zinc-800/80 p-1.5 rounded-xl mb-4">
+            {["Ma", "Ti", "Ke", "To", "Pe", "La", "Su"].map((dayName, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => setActiveDayIdx(idx)}
+                className={`w-9 h-9 rounded-lg font-bold text-xs flex items-center justify-center transition-all ${
+                  activeDayIdx === idx
+                    ? "bg-primary text-primary-foreground scale-105 shadow"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {dayName}
+              </button>
+            ))}
+          </div>
+
+          {/* Desktop Weekly Grid */}
+          <div className="hidden md:grid grid-cols-7 gap-4">
             {data?.plan?.map((day: any, idx: number) => {
               const weekDays = ["Maanantai", "Tiistai", "Keskiviikko", "Torstai", "Perjantai", "Lauantai", "Sunnuntai"];
               return (
@@ -736,6 +756,63 @@ export default function NutritionPlanPage() {
               );
             })}
           </div>
+
+          {/* Mobile Single Day View */}
+          {data?.plan?.[activeDayIdx] && (
+            <div className="md:hidden rounded-2xl glass-panel border border-border/40 p-5 bg-secondary/10 flex flex-col gap-4">
+              <div className="flex justify-between items-center border-b border-border/20 pb-3">
+                <div className="flex flex-col">
+                  <span className="font-heading font-black text-lg text-foreground">
+                    {["Maanantai", "Tiistai", "Keskiviikko", "Torstai", "Perjantai", "Lauantai", "Sunnuntai"][activeDayIdx]}
+                  </span>
+                  <span className="text-xs text-muted-foreground mt-0.5">
+                    Päivän tavoite: {calculatePlannedDayNutrition(data.plan[activeDayIdx].planned_meals?.slice(0, mealsCount)).calories} kcal
+                  </span>
+                </div>
+                {data.plan[activeDayIdx].is_workout_day ? (
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold">
+                    <Dumbbell className="w-4 h-4" />
+                    Treenipäivä
+                  </div>
+                ) : (
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest bg-secondary/30 px-3 py-1 rounded-full border border-border/20">Lepo</span>
+                )}
+              </div>
+
+              {/* Day meals list */}
+              <div className="flex flex-col gap-3">
+                {data.plan[activeDayIdx].planned_meals?.slice(0, mealsCount).map((meal: any) => {
+                  const isLocked = lockedMeals.has(meal.id);
+                  return (
+                    <div 
+                      key={meal.id} 
+                      onClick={() => setSelectedDetailMeal(meal)}
+                      className="p-4 bg-secondary/15 rounded-xl border border-border/20 flex justify-between items-center cursor-pointer hover:border-primary/50 transition-all text-left"
+                    >
+                      <div className="flex flex-col gap-1 max-w-[70%]">
+                        <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-[8px] font-bold uppercase tracking-wider w-fit">
+                          {meal.meal_type === "breakfast" ? "Aamiainen" : (meal.meal_type === "lunch" ? "Lounas" : (meal.meal_type === "snack" ? "Välipala" : "Päivällinen"))}
+                        </span>
+                        <span className="font-bold text-foreground text-sm leading-tight mt-0.5">{meal.recipe_name}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {meal.calories} kcal | P: {meal.protein}g | H: {meal.carbs}g | R: {meal.fat}g
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); toggleMealLock(meal.id); }} 
+                          className="p-2 rounded-lg bg-zinc-950/60 border border-zinc-800/40 text-muted-foreground hover:text-foreground cursor-pointer"
+                        >
+                          {isLocked ? <Lock className="w-3.5 h-3.5 text-primary" /> : <Unlock className="w-3.5 h-3.5 opacity-40" />}
+                        </button>
+                        <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1102,8 +1179,8 @@ export default function NutritionPlanPage() {
         </div>
       )}
       {selectedDetailMeal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-950 border border-border/80 rounded-3xl max-w-lg w-full max-h-[85vh] overflow-y-auto p-6 flex flex-col gap-6 relative shadow-2xl animate-scale-in text-left text-xs">
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-0 md:p-4">
+          <div className="bg-zinc-950 border-0 md:border md:border-border/80 w-full h-full md:h-auto md:max-w-lg md:rounded-3xl max-h-screen md:max-h-[85vh] overflow-y-auto p-6 flex flex-col gap-6 relative shadow-2xl animate-scale-in text-left text-xs pb-safe-bottom">
             
             {/* Header */}
             <div className="flex justify-between items-start">

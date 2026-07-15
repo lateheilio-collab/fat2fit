@@ -396,13 +396,24 @@ export async function GET(request: NextRequest) {
           targetVal = Number(calculatedTarget.toFixed(2));
         }
 
+        // Compute daily nutrition & workouts
+        const dayMeals = meals.filter(m => m.date === dateStr);
+        const dayCalories = dayMeals.reduce((acc, m) => acc + Number(m.calories || 0), 0);
+        const dayProtein = dayMeals.reduce((acc, m) => acc + Number(m.protein || 0), 0);
+
+        const dayActivities = activities.filter(a => a.started_at && a.started_at.split("T")[0] === dateStr);
+        const dayActivityMinutes = Math.round(dayActivities.reduce((acc, a) => acc + (a.duration_seconds || 0), 0) / 60);
+
         dailyPoints.push({
           date: dateStr,
           actualWeight,
           ema7: showEma7 ? Number(runningEma7.toFixed(2)) : null,
           ema28: showEma28 ? Number(runningEma28.toFixed(2)) : null,
           linearGoal: targetVal,
-          targetWeight: hasGoalConfigured ? targetWeight : null
+          targetWeight: hasGoalConfigured ? targetWeight : null,
+          calories: dayCalories || null,
+          protein: dayProtein || null,
+          activityMinutes: dayActivityMinutes || null
         });
       }
     }
