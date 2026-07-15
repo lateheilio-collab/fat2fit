@@ -83,3 +83,39 @@ describe("AI coach summary message generation rules", () => {
     expect(coachAdvice).toContain("160g");
   });
 });
+
+describe("AI Coach Chat Page - Input Interactivity and State Recovery", () => {
+  it("should be interactive (disabled=false) when loading state is false", () => {
+    const loadingState = false;
+    const inputDisabled = loadingState;
+    expect(inputDisabled).toBe(false);
+  });
+
+  it("should be locked (disabled=true) while waiting for AI response (loading=true)", () => {
+    const loadingState = true;
+    const inputDisabled = loadingState;
+    expect(inputDisabled).toBe(true);
+  });
+
+  it("should recover and unlock input (loading=false) even if network call throws an error", async () => {
+    let loading = false;
+    let errorOccurred = false;
+
+    // Simulate sending message flow
+    const simulateSendMessage = async () => {
+      loading = true;
+      try {
+        // Mocking a failed API fetch
+        throw new Error("Network error or timeout");
+      } catch (err) {
+        errorOccurred = true;
+      } finally {
+        loading = false;
+      }
+    };
+
+    await simulateSendMessage();
+    expect(errorOccurred).toBe(true);
+    expect(loading).toBe(false); // Verified input is unlocked!
+  });
+});

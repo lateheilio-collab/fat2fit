@@ -818,7 +818,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] md:h-[calc(100vh-80px)] gap-4 pb-4 max-w-4xl mx-auto">
+    <div className="flex flex-col h-[calc(100dvh-150px)] md:h-[calc(100dvh-100px)] gap-4 pb-4 max-w-4xl mx-auto overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border/20 pb-4 shrink-0">
         <div className="flex items-center gap-3">
